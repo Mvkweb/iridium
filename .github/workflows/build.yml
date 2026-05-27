@@ -22,5 +22,17 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore Iridium.csproj
       
-    - name: Build
-      run: dotnet build Iridium.csproj -c Release --no-restore
+    - name: Build and Package
+      run: |
+        dotnet publish Iridium.csproj -c Release -o output/Iridium
+        
+        # Create a zip containing the Iridium folder for easy installation
+        cd output
+        zip -r ../Iridium-latest.zip Iridium/
+        cd ..
+        
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Iridium-latest
+        path: Iridium-latest.zip
