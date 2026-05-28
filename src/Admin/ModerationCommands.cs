@@ -3,8 +3,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using Iridium.Managers;
 using Iridium.Utils;
+using Iridium.ESP;
 using SwiftlyS2.Shared;
 using SwiftlyS2.Shared.Commands;
 using SwiftlyS2.Shared.Players;
@@ -13,12 +13,13 @@ using SwiftlyS2.Shared.ProtobufDefinitions;
 using SwiftlyS2.Shared.Menus;
 using SwiftlyS2.Core.Menus.OptionsBase;
 
-namespace Iridium.Commands
+namespace Iridium.Admin
 {
     public class ModerationCommands
     {
         private readonly ISwiftlyCore _core;
         private readonly ModerationManager _moderationManager;
+        private readonly AdminESP _adminESP;
 
         private class PendingPrompt
         {
@@ -29,10 +30,11 @@ namespace Iridium.Commands
 
         private readonly ConcurrentDictionary<ulong, PendingPrompt> _pendingPrompts = new();
 
-        public ModerationCommands(ISwiftlyCore core, ModerationManager moderationManager)
+        public ModerationCommands(ISwiftlyCore core, ModerationManager moderationManager, AdminESP adminESP)
         {
             _core = core;
             _moderationManager = moderationManager;
+            _adminESP = adminESP;
 
             _core.Command.HookClientChat(OnClientChat);
             _core.Event.OnTick += OnTick;
@@ -170,6 +172,16 @@ namespace Iridium.Commands
             {
                 await context.ReplyAsync(" No valid targets were alive to be slayed.");
             }
+        }
+
+        [Command("esp")]
+        [CommandAlias("wh")]
+        public async Task OnEspCommandAsync(ICommandContext context)
+        {
+            var admin = context.Sender;
+            if (admin == null) return;
+            
+            _adminESP.ToggleESP(admin);
         }
 
         [Command("kick", permission: "iridium.kick")]

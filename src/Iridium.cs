@@ -8,9 +8,13 @@ using SwiftlyS2.Shared.Events;
 using SwiftlyS2.Shared.Misc;
 using System.Linq;
 using Iridium.Database;
-using Iridium.Managers;
-using Iridium.Commands;
+using Iridium.Config;
+using Iridium.Admin;
+using Iridium.ESP;
+using Iridium.Utility;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Iridium;
 
@@ -19,6 +23,11 @@ public partial class Iridium : BasePlugin {
   
   private ModerationManager _moderationManager = null!;
   private ModerationCommands _moderationCommands = null!;
+  private ServerCommands _serverCommands = null!;
+  private SmartRconManager _smartRconManager = null!;
+  private UtilityCommands _utilityCommands = null!;
+  private AdminESP _adminESP = null!;
+  public IridiumConfig Config { get; private set; } = new();
 
   public Iridium(ISwiftlyCore core) : base(core)
   {
@@ -43,8 +52,35 @@ public partial class Iridium : BasePlugin {
           Core.Logger.LogInformation("[Iridium] Initializing database tables...");
           await DatabaseInitializer.InitializeAsync(Core);
 
+          Core.Configuration
+              .InitializeWithTemplate("config.jsonc", "config.template.jsonc")
+              .Configure(builder => {
+                  builder.AddJsonFile("config.jsonc", optional: false, reloadOnChange: true);
+              });
+
+          ServiceCollection services = new();
+          services.AddSwiftly(Core)
+              .AddOptionsWithValidateOnStart<IridiumConfig>()
+              .BindConfiguration("Iridium");
+
+          var provider = services.BuildServiceProvider();
+          var options = provider.GetRequiredService<IOptionsMonitor<IridiumConfig>>();
+
+          Config = options.CurrentValue;
+          options.OnChange(newConfig => {
+              Config = newConfig;
+              Core.Logger.LogInformation("[Iridium] Configuration updated natively.");
+              _adminESP?.RefreshGlowsOnConfigChange();
+          });
+
+          _adminESP = new AdminESP(Core, this);
+
+          _smartRconManager = new SmartRconManager(Core);
+
           _moderationManager = new ModerationManager(Core);
-          _moderationCommands = new ModerationCommands(Core, _moderationManager);
+          _moderationCommands = new ModerationCommands(Core, _moderationManager, _adminESP);
+          _serverCommands = new ServerCommands(Core, this, _smartRconManager);
+          _utilityCommands = new UtilityCommands(Core);
 
           // Register commands manually with wrappers for async Task methods
           Core.Command.RegisterCommand("slay", (ctx) => { _ = _moderationCommands.OnSlayCommandAsync(ctx); });
@@ -52,6 +88,19 @@ public partial class Iridium : BasePlugin {
           Core.Command.RegisterCommand("mute", (ctx) => { _ = _moderationCommands.OnMuteCommandAsync(ctx); });
           Core.Command.RegisterCommand("unmute", (ctx) => { _ = _moderationCommands.OnUnmuteCommandAsync(ctx); });
           Core.Command.RegisterCommand("ban", (ctx) => { _ = _moderationCommands.OnBanCommandAsync(ctx); });
+          
+          Core.Command.RegisterCommand("rcon", (ctx) => { _ = _serverCommands.OnRconCommandAsync(ctx); });
+          
+          Core.Command.RegisterCommand("esp", (ctx) => { _ = _moderationCommands.OnEspCommandAsync(ctx); });
+          Core.Command.RegisterCommand("wh", (ctx) => { _ = _moderationCommands.OnEspCommandAsync(ctx); });
+          
+          Core.Command.RegisterCommand("smoke", (ctx) => { _ = _utilityCommands.OnSmokeCommandAsync(ctx); });
+          Core.Command.RegisterCommand("molotov", (ctx) => { _ = _utilityCommands.OnMolotovCommandAsync(ctx); });
+          Core.Command.RegisterCommand("flash", (ctx) => { _ = _utilityCommands.OnFlashCommandAsync(ctx); });
+          Core.Command.RegisterCommand("flashbang", (ctx) => { _ = _utilityCommands.OnFlashCommandAsync(ctx); });
+          Core.Command.RegisterCommand("hegrenade", (ctx) => { _ = _utilityCommands.OnHeGrenadeCommandAsync(ctx); });
+          Core.Command.RegisterCommand("frag", (ctx) => { _ = _utilityCommands.OnHeGrenadeCommandAsync(ctx); });
+          Core.Command.RegisterCommand("nade", (ctx) => { _ = _utilityCommands.OnHeGrenadeCommandAsync(ctx); });
           
           Core.Command.RegisterCommand("lp", (ctx) => { _ = _moderationCommands.OnListPlayersCommandAsync(ctx); });
           Core.Command.RegisterCommand("listplayers", (ctx) => { _ = _moderationCommands.OnListPlayersCommandAsync(ctx); });

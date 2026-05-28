@@ -1,0 +1,20 @@
+{
+    "Iridium": {
+        "ESP": {
+            "FullPermission": "iridium.root",
+            "SpectatorPermission": "iridium.esp",
+            "SlaughterRed": {
+                "R": 235,
+                "G": 52,
+                "B": 52,
+                "A": 255
+            },
+            "DopplerGreen": {
+                "R": 52,
+                "G": 235,
+                "B": 113,
+                "A": 255
+            }
+        }
+    }
+}

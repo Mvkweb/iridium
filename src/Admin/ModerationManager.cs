@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Dapper;
 using SwiftlyS2.Shared;
 
-namespace Iridium.Managers
+namespace Iridium.Admin
 {
     public class ModerationManager
     {
