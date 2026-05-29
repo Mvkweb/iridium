@@ -6,6 +6,9 @@ using SwiftlyS2.Shared;
 using SwiftlyS2.Shared.Players;
 using Iridium.Config;
 using Microsoft.Extensions.Logging;
+using SwiftlyS2.Shared.GameEventDefinitions;
+using SwiftlyS2.Shared.Plugins;
+using SwiftlyS2.Shared.Misc;
 
 namespace Iridium.ESP;
 
@@ -41,6 +44,25 @@ public class AdminESP
                 _core.Logger.LogError("[Iridium] ESP Tick Error: " + ex.Message);
             }
         };
+
+        // Explicitly destroy all glows before the engine resets the map on round prestart.
+        // Failing to do this causes the engine to corrupt the dynamic props attached to pawns that get wiped!
+        _core.GameEvent.HookPre<EventRoundPrestart>((@event) =>
+        {
+            try
+            {
+                foreach (var tracker in _espTrackers.Values)
+                {
+                    tracker.Dispose();
+                }
+                _espTrackers.Clear();
+            }
+            catch (Exception ex)
+            {
+                _core.Logger.LogError("[Iridium] ESP RoundPrestart Error: " + ex.Message);
+            }
+            return HookResult.Continue;
+        });
     }
 
     public void ToggleESP(IPlayer? admin)
@@ -62,7 +84,14 @@ public class AdminESP
         if (_activeAdmins.Contains(admin.SteamID))
         {
             _activeAdmins.Remove(admin.SteamID);
-            admin.SendChat(" \x02[Iridium]\x01 ESP is now \x0FfOFF\x01.");
+            
+            // Instantly clear the ESP overlays for this admin
+            foreach (var tracker in _espTrackers.Values)
+            {
+                tracker.UpdateTransmissionState(admin.PlayerID, false, false, false);
+            }
+            
+            admin.SendChat(" \x02[Iridium]\x01 ESP is now \x0F" + "OFF\x01.");
         }
         else
         {
@@ -79,14 +108,38 @@ public class AdminESP
         foreach (var target in allPlayers)
         {
             bool isAlive = target.Controller?.PawnIsAlive == true;
+            uint? currentPawnIndex = target.PlayerPawn?.Index;
             
-            if (isAlive && !_espTrackers.ContainsKey(target.PlayerID))
+            bool hasTracker = _espTrackers.TryGetValue(target.PlayerID, out var tracker);
+            bool isPawnChanged = hasTracker && tracker?.PawnIndex != currentPawnIndex;
+
+            // If their pawn was completely replaced (like on warmup end or round restart)
+            // we must recreate the ESP overlays because the old pawn was destroyed by the engine!
+            if (isPawnChanged)
             {
-                _espTrackers[target.PlayerID] = new PlayerESPTracker(target, _core, _plugin.Config);
+                if (_espTrackers.TryRemove(target.PlayerID, out var oldTracker))
+                {
+                    oldTracker.Dispose();
+                }
+                hasTracker = false;
             }
-            else if (!isAlive && _espTrackers.TryRemove(target.PlayerID, out var deadTracker))
+
+            if (isAlive && !hasTracker)
             {
-                deadTracker.Dispose();
+                // Only create the tracker once the engine has assigned a valid model to the pawn
+                // This prevents spawning unprecached fallback models which the engine instantly deletes
+                string? modelName = target.PlayerPawn?.CBodyComponent?.SceneNode?.GetSkeletonInstance()?.ModelState?.ModelName;
+                if (!string.IsNullOrEmpty(modelName))
+                {
+                    _espTrackers[target.PlayerID] = new PlayerESPTracker(target, _core, _plugin.Config);
+                }
+            }
+            else if (!isAlive && hasTracker)
+            {
+                if (_espTrackers.TryRemove(target.PlayerID, out var deadTracker))
+                {
+                    deadTracker.Dispose();
+                }
             }
         }
 
@@ -101,40 +154,45 @@ public class AdminESP
             }
         }
 
-        // 2. Transmit to active admins
-        foreach (var adminId in _activeAdmins.ToList())
+        // 2. Transmit updates to EVERY viewer on the server to enforce visibility
+        foreach (var viewer in allPlayers)
         {
-            var admin = allPlayers.FirstOrDefault(p => p.SteamID == adminId);
-            if (admin == null) continue; // Disconnected
-
-            bool isRoot = _core.Permission.PlayerHasPermission(admin.SteamID, "root");
-            bool isAlive = admin.Controller?.PawnIsAlive == true;
+            bool isActiveAdmin = _activeAdmins.Contains(viewer.SteamID);
+            bool isRoot = _core.Permission.PlayerHasPermission(viewer.SteamID, "root");
+            bool isAlive = viewer.Controller?.PawnIsAlive == true;
 
             // Strict Permission Enforcement: Non-roots lose ESP while alive
-            if (!isRoot && isAlive)
+            if (isActiveAdmin && !isRoot && isAlive)
             {
-                continue;
+                isActiveAdmin = false;
             }
 
-            // Transmit glows to this admin
             foreach (var target in allPlayers)
             {
-                if (target.PlayerID == admin.PlayerID) continue;
+                if (target.PlayerID == viewer.PlayerID) continue;
                 if (!target.IsValid || target.Controller?.PawnIsAlive != true) continue;
 
                 if (_espTrackers.TryGetValue(target.PlayerID, out var tracker))
                 {
-                    bool isTeammate = target.Controller.TeamNum == admin.Controller?.TeamNum;
-                    bool isEnemy = !isTeammate && target.Controller?.TeamNum >= 2 && admin.Controller?.TeamNum >= 2;
-
-                    // Spectator logic
-                    if (admin.Controller?.TeamNum == 1) // Spectator
+                    if (!isActiveAdmin)
                     {
-                        if (target.Controller.TeamNum == 3) isTeammate = true; // CTs are green
-                        else if (target.Controller.TeamNum == 2) isEnemy = true; // Ts are red
+                        // Explicitly hide from viewers who don't have ESP active
+                        tracker.UpdateTransmissionState(viewer.PlayerID, false, false, false);
                     }
+                    else
+                    {
+                        bool isTeammate = target.Controller.TeamNum == viewer.Controller?.TeamNum;
+                        bool isEnemy = !isTeammate && target.Controller?.TeamNum >= 2 && viewer.Controller?.TeamNum >= 2;
 
-                    tracker.UpdateTransmissionState(admin.PlayerID, true, isTeammate, isEnemy);
+                        // Spectator logic
+                        if (viewer.Controller?.TeamNum == 1) // Spectator
+                        {
+                            if (target.Controller.TeamNum == 3) isTeammate = true; 
+                            else if (target.Controller.TeamNum == 2) isEnemy = true;
+                        }
+
+                        tracker.UpdateTransmissionState(viewer.PlayerID, true, isTeammate, isEnemy);
+                    }
                 }
             }
         }

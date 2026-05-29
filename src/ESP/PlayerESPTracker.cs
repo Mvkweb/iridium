@@ -11,6 +11,7 @@ public class PlayerESPTracker : IDisposable
 {
     public int TargetPlayerId { get; }
     public string ActiveModelName { get; }
+    public uint? PawnIndex { get; }
 
     private CDynamicProp? _proxyRelay;
     private CDynamicProp? _enemyGlowOverlay;
@@ -21,6 +22,7 @@ public class PlayerESPTracker : IDisposable
     public PlayerESPTracker(IPlayer target, ISwiftlyCore core, IridiumConfig config)
     {
         TargetPlayerId = target.PlayerID;
+        PawnIndex = target.PlayerPawn?.Index;
         ActiveModelName = ResolveCharacterModel(target);
 
         InitializeOverlays(target, core, config);
