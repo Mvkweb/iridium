@@ -68,6 +68,10 @@ You must configure the `configs/database.jsonc` file in your SwiftlyS2 directory
 ```
 **Note:** Iridium explicitly looks for a connection named `"iridium"`. If it cannot find one, it will fall back to your `"default_connection"`.
 
+## Architecture & Project Structure
+- **`src/`** - Contains all core C# modules (`Admin`, `Config`, `Database`, `ESP`, `Utility`).
+- **`resources/`** - Houses translation strings, configuration templates, and non-code assets.
+
 ## Installation & Building
 
 1. Ensure the SwiftlyS2 dependencies are properly restored.
@@ -77,3 +81,11 @@ You must configure the `configs/database.jsonc` file in your SwiftlyS2 directory
    ```
 3. Drag and drop the built output folder into your server's `plugins/` directory.
 4. On the next server start, the `iridium_mutes` and `iridium_bans` tables will be automatically generated.
+
+## Credits
+
+Special thanks to [T3-Admin](https://github.com/a2Labs-cc/T3-Admin) for the initial inspiration and reference code that helped kickstart this plugin!
+
+## Author
+
+Developed and maintained by **Mvk**.

@@ -27,6 +27,7 @@ public partial class Iridium : BasePlugin {
   private SmartRconManager _smartRconManager = null!;
   private UtilityCommands _utilityCommands = null!;
   private AdminESP _adminESP = null!;
+  private MapCommands _mapCommands = null!;
   public IridiumConfig Config { get; private set; } = new();
 
   public Iridium(ISwiftlyCore core) : base(core)
@@ -81,6 +82,7 @@ public partial class Iridium : BasePlugin {
           _moderationCommands = new ModerationCommands(Core, _moderationManager, _adminESP);
           _serverCommands = new ServerCommands(Core, this, _smartRconManager);
           _utilityCommands = new UtilityCommands(Core);
+          _mapCommands = new MapCommands(Core);
 
           // Register commands manually with wrappers for async Task methods
           Core.Command.RegisterCommand("slay", (ctx) => { _ = _moderationCommands.OnSlayCommandAsync(ctx); });
@@ -94,6 +96,8 @@ public partial class Iridium : BasePlugin {
           Core.Command.RegisterCommand("esp", (ctx) => { _ = _moderationCommands.OnEspCommandAsync(ctx); });
           Core.Command.RegisterCommand("wh", (ctx) => { _ = _moderationCommands.OnEspCommandAsync(ctx); });
           
+          Core.Command.RegisterCommand("map", (ctx) => { _ = _mapCommands.OnMapCommandAsync(ctx); });
+
           Core.Command.RegisterCommand("smoke", (ctx) => { _ = _utilityCommands.OnSmokeCommandAsync(ctx); });
           Core.Command.RegisterCommand("molotov", (ctx) => { _ = _utilityCommands.OnMolotovCommandAsync(ctx); });
           Core.Command.RegisterCommand("flash", (ctx) => { _ = _utilityCommands.OnFlashCommandAsync(ctx); });
