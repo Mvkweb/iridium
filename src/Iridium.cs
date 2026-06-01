@@ -28,6 +28,7 @@ public partial class Iridium : BasePlugin {
   private UtilityCommands _utilityCommands = null!;
   private AdminESP _adminESP = null!;
   private MapCommands _mapCommands = null!;
+  private RtvManager _rtvManager = null!;
   public IridiumConfig Config { get; private set; } = new();
 
   public Iridium(ISwiftlyCore core) : base(core)
@@ -82,7 +83,8 @@ public partial class Iridium : BasePlugin {
           _moderationCommands = new ModerationCommands(Core, _moderationManager, _adminESP);
           _serverCommands = new ServerCommands(Core, this, _smartRconManager);
           _utilityCommands = new UtilityCommands(Core);
-          _mapCommands = new MapCommands(Core);
+          _mapCommands = new MapCommands(Core, this);
+          _rtvManager = new RtvManager(Core, this);
 
           // Register commands manually with wrappers for async Task methods
           Core.Command.RegisterCommand("slay", (ctx) => { _ = _moderationCommands.OnSlayCommandAsync(ctx); });
@@ -97,6 +99,12 @@ public partial class Iridium : BasePlugin {
           Core.Command.RegisterCommand("wh", (ctx) => { _ = _moderationCommands.OnEspCommandAsync(ctx); });
           
           Core.Command.RegisterCommand("map", (ctx) => { _ = _mapCommands.OnMapCommandAsync(ctx); });
+          Core.Command.RegisterCommand("setmap", (ctx) => { _ = _mapCommands.OnMapCommandAsync(ctx); });
+          
+          Core.Command.RegisterCommand("rtv", (ctx) => { _ = _rtvManager.OnRtvCommandAsync(ctx); });
+          Core.Command.RegisterCommand("unrtv", (ctx) => { _ = _rtvManager.OnUnrtvCommandAsync(ctx); });
+          Core.Command.RegisterCommand("nominate", (ctx) => { _ = _rtvManager.OnNominateCommandAsync(ctx); });
+          Core.Command.RegisterCommand("nom", (ctx) => { _ = _rtvManager.OnNominateCommandAsync(ctx); });
 
           Core.Command.RegisterCommand("smoke", (ctx) => { _ = _utilityCommands.OnSmokeCommandAsync(ctx); });
           Core.Command.RegisterCommand("molotov", (ctx) => { _ = _utilityCommands.OnMolotovCommandAsync(ctx); });

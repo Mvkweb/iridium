@@ -4,6 +4,9 @@ public class IridiumConfig
 {
     public ESPConfig ESP { get; set; } = new();
     public ServerConfig Server { get; set; } = new();
+    public MapsConfig MapsOptions { get; set; } = new();
+    public RtvConfig Rtv { get; set; } = new();
+    public EndOfMapConfig EndOfMap { get; set; } = new();
 }
 
 public class ServerConfig
@@ -26,4 +29,24 @@ public class GlowColor
     public int G { get; set; } = 255;
     public int B { get; set; } = 255;
     public int A { get; set; } = 255;
+}
+
+public class MapsConfig
+{
+    public string[] Maps { get; set; } = { "de_dust2", "de_mirage", "de_inferno", "de_nuke", "de_vertigo", "de_overpass", "de_ancient", "de_anubis", "de_cache", "cs_office" };
+}
+
+public class RtvConfig
+{
+    public bool Enabled { get; set; } = true;
+    public int VotePercentage { get; set; } = 60;
+    public int VoteDurationSeconds { get; set; } = 30;
+    public int ChangeMapDelaySeconds { get; set; } = 5;
+    public bool NominationEnabled { get; set; } = true;
+}
+
+public class EndOfMapConfig
+{
+    public bool Enabled { get; set; } = true;
+    public int TriggerRoundsBeforeEnd { get; set; } = 2;
 }

@@ -21,3 +21,17 @@ release-package/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Frontend / Node.js
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+frontend/*.log
+frontend/.vite/
+frontend/coverage/
+
+# Other
+
+gemini.md
+test_hook.cs

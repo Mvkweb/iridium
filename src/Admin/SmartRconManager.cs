@@ -14,7 +14,7 @@ public class SmartRconManager
     private readonly HashSet<string> _knownCommands = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> _commandList = new();
     private bool _isLoaded = false;
-    
+
     private const string COMMANDS_URL = "https://raw.githubusercontent.com/SteamTracking/GameTracking-CS2/master/DumpSource2/commands.txt";
     private const string CONVARS_URL = "https://raw.githubusercontent.com/SteamTracking/GameTracking-CS2/master/DumpSource2/convars.txt";
 
@@ -31,10 +31,10 @@ public class SmartRconManager
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("User-Agent", "Iridium-SmartRcon/1.0");
-            
+
             var fetchCommandsTask = client.GetStringAsync(COMMANDS_URL);
             var fetchConvarsTask = client.GetStringAsync(CONVARS_URL);
-            
+
             await Task.WhenAll(fetchCommandsTask, fetchConvarsTask);
 
             ParseFile(fetchCommandsTask.Result);
@@ -89,7 +89,7 @@ public class SmartRconManager
     public bool IsKnownCommand(string command)
     {
         if (!_isLoaded) return true; // Fail-open if the fetch fails or is still loading
-        
+
         lock (_knownCommands)
         {
             return _knownCommands.Contains(command);
@@ -116,28 +116,28 @@ public class SmartRconManager
     {
         int n = s.Length;
         int m = t.Length;
-        
+
         if (n == 0) return m;
         if (m == 0) return n;
-        
+
         int[] v0 = new int[m + 1];
         int[] v1 = new int[m + 1];
-        
+
         for (int i = 0; i <= m; i++) v0[i] = i;
-        
+
         for (int i = 0; i < n; i++)
         {
             v1[0] = i + 1;
-            
+
             for (int j = 0; j < m; j++)
             {
                 int cost = (s[i] == t[j]) ? 0 : 1;
                 v1[j + 1] = Math.Min(v1[j] + 1, Math.Min(v0[j + 1] + 1, v0[j] + cost));
             }
-            
+
             for (int j = 0; j <= m; j++) v0[j] = v1[j];
         }
-        
+
         return v1[m];
     }
 }
