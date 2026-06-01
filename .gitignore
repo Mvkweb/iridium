@@ -30,6 +30,7 @@ frontend/.env.*
 frontend/*.log
 frontend/.vite/
 frontend/coverage/
+frontend.tar.gz
 
 # Other
 
