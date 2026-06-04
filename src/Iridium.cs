@@ -15,6 +15,7 @@ using Iridium.Utility;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using Iridium.Dashboard;
 
 namespace Iridium;
 
@@ -29,6 +30,7 @@ public partial class Iridium : BasePlugin {
   private AdminESP _adminESP = null!;
   private MapCommands _mapCommands = null!;
   private RtvManager _rtvManager = null!;
+  private DashboardService _dashboardService = null!;
   public IridiumConfig Config { get; private set; } = new();
 
   public Iridium(ISwiftlyCore core) : base(core)
@@ -72,7 +74,7 @@ public partial class Iridium : BasePlugin {
           options.OnChange(newConfig => {
               Config = newConfig;
               Core.Logger.LogInformation("[Iridium] Configuration updated natively.");
-              _adminESP?.RefreshGlowsOnConfigChange();
+              Core.Scheduler.NextTick(() => _adminESP?.RefreshGlowsOnConfigChange());
           });
 
           _adminESP = new AdminESP(Core, this);
@@ -85,6 +87,9 @@ public partial class Iridium : BasePlugin {
           _utilityCommands = new UtilityCommands(Core);
           _mapCommands = new MapCommands(Core, this);
           _rtvManager = new RtvManager(Core, this);
+
+          _dashboardService = new DashboardService(Core, this);
+          _dashboardService.Initialize();
 
           // Register commands manually with wrappers for async Task methods
           Core.Command.RegisterCommand("slay", (ctx) => { _ = _moderationCommands.OnSlayCommandAsync(ctx); });
@@ -159,5 +164,6 @@ public partial class Iridium : BasePlugin {
 
   public override void Unload() {
       Core.Logger.LogInformation("[Iridium] Unloading plugin...");
+      _dashboardService?.Dispose();
   }
 }

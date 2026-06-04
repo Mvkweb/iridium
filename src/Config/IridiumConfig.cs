@@ -7,6 +7,14 @@ public class IridiumConfig
     public MapsConfig MapsOptions { get; set; } = new();
     public RtvConfig Rtv { get; set; } = new();
     public EndOfMapConfig EndOfMap { get; set; } = new();
+    public DashboardConfig Dashboard { get; set; } = new();
+}
+
+public class DashboardConfig
+{
+    public bool Enabled { get; set; } = true;
+    public string WebSocketHost { get; set; } = "0.0.0.0";
+    public int WebSocketPort { get; set; } = 8181;
 }
 
 public class ServerConfig

@@ -45,8 +45,21 @@ namespace Iridium.Database
                     INDEX (`is_active`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
 
+            var createDashboardSessionsTable = @"
+                CREATE TABLE IF NOT EXISTS `iridium_dashboard_sessions` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `steam_id` VARCHAR(32) NOT NULL,
+                    `token` VARCHAR(128) NOT NULL,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `expires_at` TIMESTAMP NULL,
+                    `is_active` BOOLEAN DEFAULT TRUE,
+                    INDEX (`steam_id`),
+                    INDEX (`token`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+
             await connection.ExecuteAsync(createMutesTable);
             await connection.ExecuteAsync(createBansTable);
+            await connection.ExecuteAsync(createDashboardSessionsTable);
         }
     }
 }
