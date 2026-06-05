@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using SwiftlyS2.Shared;
 using SwiftlyS2.Shared.Commands;
 using SwiftlyS2.Shared.Players;
@@ -19,79 +20,100 @@ namespace Iridium.Admin
             _plugin = plugin;
         }
 
-        [Command("map", permission: "iridium.map")]
-        [CommandAlias("setmap")]
-        public async Task OnMapCommandAsync(ICommandContext context)
+        public void OnMapCommand(ICommandContext context)
         {
-            var admin = context.Sender;
-            if (admin == null)
+            try
             {
-                await context.ReplyAsync(" Usage: !map (must be executed in-game to show menu)");
-                return;
-            }
-
-            var builder = _core.MenusAPI.CreateBuilder();
-            builder.Design.SetMenuTitle($"<span color='#FF5733'>Change Server Map</span>");
-            builder.Design.SetMenuFooterVisible(false);
-            builder.Design.SetCommentVisible(true);
-            builder.Design.SetDefaultComment("<span color='#CCCCCC'>Move:</span> SHIFT/F | <span color='#CCCCCC'>Select:</span> E | <span color='#CCCCCC'>Exit:</span> TAB");
-
-            var availableMaps = _plugin.Config.MapsOptions.Maps;
-
-            foreach (var mapNameRaw in availableMaps)
-            {
-                var mapName = mapNameRaw;
-                string displayMapName = mapName;
-                bool isWorkshop = false;
-
-                if (mapName.StartsWith("ws:"))
+                var admin = context.Sender;
+                if (admin == null)
                 {
-                    isWorkshop = true;
-                    mapName = mapName.Substring(3);
-                    displayMapName = $"[WS] {mapName}";
+                    _ = context.ReplyAsync(" Usage: !adminmap (must be executed in-game to show menu)");
+                    return;
                 }
 
-                var button = new ButtonMenuOption(displayMapName) { CloseAfterClick = true };
-                button.Click += async (_, args) =>
+                var builder = _core.MenusAPI.CreateBuilder();
+                builder.Design.SetMenuTitle($"<span color='#FF5733'>Change Server Map</span>");
+                builder.Design.SetCommentVisible(false);
+
+                // Add robust null checking to prevent NullReferenceException
+                var availableMaps = _plugin?.Config?.MapsOptions?.Maps;
+                if (availableMaps == null || availableMaps.Length == 0)
                 {
-                    var adminPlayer = args.Player;
-                    var adminPlayerName = adminPlayer.Controller?.PlayerName ?? "Admin";
-                    var currentMap = _core.Engine.GlobalVars.MapName.ToString();
+                    _core.Logger.LogError("[Iridium] Map list is null or empty. Check core.jsonc configuration!");
+                    admin.SendChat(" \x02[Iridium]\x01 The map list is currently empty.");
+                    return;
+                }
 
-                    if (mapName.Equals(currentMap, StringComparison.OrdinalIgnoreCase))
+                foreach (var mapNameRaw in availableMaps)
+                {
+                    var mapName = mapNameRaw;
+                    string displayMapName = mapName;
+                    bool isWorkshop = false;
+
+                    if (mapName.StartsWith("ws:"))
                     {
-                        _ = adminPlayer.SendChatAsync($" \x06Iridium\x01 • The server is already on \x04{displayMapName}\x01.");
+                        isWorkshop = true;
+                        mapName = mapName.Substring(3);
+                        displayMapName = $"[WS] {mapName}";
                     }
-                    else
-                    {
-                        foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
-                        {
-                            _ = p.SendChatAsync($" \x06Iridium\x01 • \x04{adminPlayerName}\x01 is changing the map to \x04{displayMapName}\x01...");
-                        }
 
-                        // Use a 2-second delay instead of NextTick to allow the Swiftly menu to fully close
-                        // Changing the map on the exact same frame a menu is closing is a known cause of 
-                        // null-pointer crashes in the CS2 engine/frameworks when UI entities are wiped.
-                        await Task.Delay(2000);
-                        
+                    var capturedMapName = mapName;
+                    var capturedDisplayName = displayMapName;
+                    var capturedIsWorkshop = isWorkshop;
+
+                    var button = new ButtonMenuOption(displayMapName) { CloseAfterClick = true };
+                    button.Click += (_, args) =>
+                    {
+                        var adminPlayer = args.Player;
+                        var adminPlayerName = adminPlayer.Controller?.PlayerName ?? "Admin";
+
                         _core.Scheduler.NextTick(() =>
                         {
-                            if (isWorkshop)
+                            try
                             {
-                                _core.Engine.ExecuteCommandWithBuffer($"host_workshop_map {mapName}", _ => { });
+                                var currentMap = _core.Engine.GlobalVars.MapName.ToString();
+
+                                if (capturedMapName.Equals(currentMap, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    adminPlayer.SendChat($" \x06Iridium\x01 • The server is already on \x04{capturedDisplayName}\x01.");
+                                }
+                                else
+                                {
+                                    foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+                                    {
+                                        p.SendChat($" \x06Iridium\x01 • \x04{adminPlayerName}\x01 is changing the map to \x04{capturedDisplayName}\x01...");
+                                    }
+
+                                    _core.Scheduler.DelayBySeconds(2, () =>
+                                    {
+                                        if (capturedIsWorkshop)
+                                        {
+                                            _core.Engine.ExecuteCommand($"host_workshop_map {capturedMapName}");
+                                        }
+                                        else
+                                        {
+                                            _core.Engine.ExecuteCommand($"nextlevel {capturedMapName}");
+                                            _core.Engine.ExecuteCommand($"changelevel {capturedMapName}");
+                                        }
+                                    });
+                                }
                             }
-                            else
+                            catch (Exception ex)
                             {
-                                _core.Engine.ExecuteCommandWithBuffer($"nextlevel {mapName}", _ => { });
-                                _core.Engine.ExecuteCommandWithBuffer($"changelevel {mapName}", _ => { });
+                                _core.Logger.LogError($"[Iridium] Map change click error: {ex.Message}\n{ex.StackTrace}");
                             }
                         });
-                    }
-                };
-                builder.AddOption(button);
-            }
+                        return ValueTask.CompletedTask;
+                    };
+                    builder.AddOption(button);
+                }
 
-            _core.MenusAPI.OpenMenuForPlayer(admin, builder.Build());
+                _core.MenusAPI.OpenMenuForPlayer(admin, builder.Build());
+            }
+            catch (Exception ex)
+            {
+                _core.Logger.LogError($"[Iridium] MapCommand FATAL ERROR: {ex.Message}\n{ex.StackTrace}");
+            }
         }
     }
 }

@@ -103,8 +103,8 @@ public partial class Iridium : BasePlugin {
           Core.Command.RegisterCommand("esp", (ctx) => { _ = _moderationCommands.OnEspCommandAsync(ctx); });
           Core.Command.RegisterCommand("wh", (ctx) => { _ = _moderationCommands.OnEspCommandAsync(ctx); });
           
-          Core.Command.RegisterCommand("map", (ctx) => { _ = _mapCommands.OnMapCommandAsync(ctx); });
-          Core.Command.RegisterCommand("setmap", (ctx) => { _ = _mapCommands.OnMapCommandAsync(ctx); });
+          Core.Command.RegisterCommand("adminmap", (ctx) => { _mapCommands.OnMapCommand(ctx); });
+          Core.Command.RegisterCommand("setmap", (ctx) => { _mapCommands.OnMapCommand(ctx); });
           
           Core.Command.RegisterCommand("rtv", (ctx) => { _ = _rtvManager.OnRtvCommandAsync(ctx); });
           Core.Command.RegisterCommand("unrtv", (ctx) => { _ = _rtvManager.OnUnrtvCommandAsync(ctx); });
@@ -164,6 +164,9 @@ public partial class Iridium : BasePlugin {
 
   public override void Unload() {
       Core.Logger.LogInformation("[Iridium] Unloading plugin...");
+      _adminESP?.Dispose();
+      _moderationCommands?.Dispose();
+      _serverCommands?.Dispose();
       _dashboardService?.Dispose();
   }
 }

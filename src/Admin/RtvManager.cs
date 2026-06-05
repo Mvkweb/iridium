@@ -211,12 +211,16 @@ namespace Iridium.Admin
                 }
             }
 
+            // Wait and tally
+            int durationSeconds = isEndOfMap ? 12 : _plugin.Config.Rtv.VoteDurationSeconds; // If end of map, keep it short to fit within the win panel (15s)
+
             // Dispatch menus to players
             foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid && !x.IsFakeClient))
             {
                 var builder = _core.MenusAPI.CreateBuilder();
-                builder.Design.SetMenuTitle($"<span color='#FFD700'>Vote for Next Map</span>");
-                builder.Design.SetMenuFooterVisible(false);
+                builder.Design.SetMenuTitle($"<span color='#FF5733'>Vote for Next Map</span>");
+                builder.Design.SetCommentVisible(true);
+                builder.Design.SetDefaultComment($"<span color='#CCCCCC'>Vote ends in</span> <span color='#FF5733'>{durationSeconds}s</span>");
 
                 foreach (var map in options)
                 {
@@ -295,22 +299,20 @@ namespace Iridium.Admin
             }
 
             int delaySeconds = isEndOfMap ? 2 : _plugin.Config.Rtv.ChangeMapDelaySeconds;
+            bool isWorkshop = winner.StartsWith("ws:");
+            string mapName = isWorkshop ? winner.Substring(3) : winner;
 
-            Task.Run(async () =>
+            _core.Scheduler.DelayBySeconds(delaySeconds + 3, () =>
             {
-                await Task.Delay(delaySeconds * 1000);
-                _core.Scheduler.NextTick(() =>
+                if (isWorkshop)
                 {
-                    if (winner.StartsWith("ws:"))
-                    {
-                        _core.Engine.ExecuteCommandWithBuffer($"host_workshop_map {winner.Substring(3)}", _ => { });
-                    }
-                    else
-                    {
-                        _core.Engine.ExecuteCommandWithBuffer($"nextlevel {winner}", _ => { });
-                        _core.Engine.ExecuteCommandWithBuffer($"changelevel {winner}", _ => { });
-                    }
-                });
+                    _core.Engine.ExecuteCommand($"host_workshop_map {mapName}");
+                }
+                else
+                {
+                    _core.Engine.ExecuteCommand($"nextlevel {mapName}");
+                    _core.Engine.ExecuteCommand($"changelevel {mapName}");
+                }
             });
         }
     }

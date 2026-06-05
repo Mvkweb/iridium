@@ -40,6 +40,11 @@ namespace Iridium.Admin
             _core.Event.OnTick += OnTick;
         }
 
+        public void Dispose()
+        {
+            _core.Event.OnTick -= OnTick;
+        }
+
         private void OnTick()
         {
             if (_pendingPrompts.IsEmpty) return;
@@ -354,7 +359,6 @@ namespace Iridium.Admin
         {
             var builder = _core.MenusAPI.CreateBuilder();
             builder.Design.SetMenuTitle($"<span color='#FF5733'>Select Player to {char.ToUpper(actionType[0]) + actionType.Substring(1)}</span>");
-            builder.Design.SetMenuFooterVisible(false);
             builder.Design.SetCommentVisible(true);
             builder.Design.SetDefaultComment("<span color='#CCCCCC'>Move:</span> SHIFT/F | <span color='#CCCCCC'>Select:</span> E | <span color='#CCCCCC'>Exit:</span> TAB | <span color='#FF5733'>Custom Reason:</span> R");
 
@@ -567,7 +571,6 @@ namespace Iridium.Admin
         {
             var builder = _core.MenusAPI.CreateBuilder();
             builder.Design.SetMenuTitle($"<span color='#FF5733'>Duration for {char.ToUpper(actionType[0]) + actionType.Substring(1)}ing {target.Controller?.PlayerName}</span>");
-            builder.Design.SetMenuFooterVisible(false);
             builder.Design.SetCommentVisible(true);
             builder.Design.SetDefaultComment("<span color='#CCCCCC'>Move:</span> SHIFT/F | <span color='#CCCCCC'>Select:</span> E | <span color='#CCCCCC'>Exit:</span> TAB");
 

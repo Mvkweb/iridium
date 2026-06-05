@@ -8,6 +8,7 @@ using SwiftlyS2.Shared.Commands;
 using SwiftlyS2.Shared.Players;
 using Microsoft.Extensions.Logging;
 using Iridium.Config;
+using SwiftlyS2.Shared.Events;
 
 namespace Iridium.Admin;
 
@@ -24,13 +25,15 @@ public class ServerCommands
     // Pre-compiled regex for stripping ANSI color codes (highly optimized)
     private static readonly Regex AnsiRegex = new Regex(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
 
+    private readonly EventDelegates.OnConsoleOutput _onConsoleOutput;
+
     public ServerCommands(ISwiftlyCore core, Iridium plugin, SmartRconManager smartRcon)
     {
         _core = core;
         _plugin = plugin;
         _smartRcon = smartRcon;
 
-        _core.Event.OnConsoleOutput += (@event) =>
+        _onConsoleOutput = (@event) =>
         {
             if (_activeRconExecutor != null)
             {
@@ -52,6 +55,13 @@ public class ServerCommands
                 _activeRconExecutor.SendConsole(consoleOutput);
             }
         };
+
+        _core.Event.OnConsoleOutput += _onConsoleOutput;
+    }
+
+    public void Dispose()
+    {
+        _core.Event.OnConsoleOutput -= _onConsoleOutput;
     }
 
     [Command("rcon")]

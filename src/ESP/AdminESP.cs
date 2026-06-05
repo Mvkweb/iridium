@@ -12,7 +12,7 @@ using SwiftlyS2.Shared.Misc;
 
 namespace Iridium.ESP;
 
-public class AdminESP
+public class AdminESP : IDisposable
 {
     private readonly ISwiftlyCore _core;
     private readonly Iridium _plugin;
@@ -28,41 +28,51 @@ public class AdminESP
     {
         _core = core;
         _plugin = plugin;
-        
-        // Ticks every engine frame, but we throttle to 100ms
-        _core.Event.OnTick += () =>
-        {
-            if (DateTime.UtcNow < _nextEspTick) return;
-            _nextEspTick = DateTime.UtcNow.AddMilliseconds(100);
+        _core.GameEvent.HookPre<EventRoundPrestart>(OnRoundPrestart);
+        _core.Event.OnTick += OnTick;
+    }
 
-            try
-            {
-                ProcessESPTick();
-            }
-            catch (Exception ex)
-            {
-                _core.Logger.LogError("[Iridium] ESP Tick Error: " + ex.Message);
-            }
-        };
-
-        // Explicitly destroy all glows before the engine resets the map on round prestart.
-        // Failing to do this causes the engine to corrupt the dynamic props attached to pawns that get wiped!
-        _core.GameEvent.HookPre<EventRoundPrestart>((@event) =>
+    private HookResult OnRoundPrestart(EventRoundPrestart @event)
+    {
+        try
         {
-            try
+            foreach (var tracker in _espTrackers.Values)
             {
-                foreach (var tracker in _espTrackers.Values)
-                {
-                    tracker.Dispose();
-                }
-                _espTrackers.Clear();
+                tracker.Dispose();
             }
-            catch (Exception ex)
-            {
-                _core.Logger.LogError("[Iridium] ESP RoundPrestart Error: " + ex.Message);
-            }
-            return HookResult.Continue;
-        });
+            _espTrackers.Clear();
+        }
+        catch (Exception ex)
+        {
+            _core.Logger.LogError($"[AdminESP] Error during round prestart cleanup: {ex.Message}");
+        }
+        return HookResult.Continue;
+    }
+
+    private void OnTick()
+    {
+        if (_core.Engine == null) return;
+        if (DateTime.UtcNow < _nextEspTick) return;
+        _nextEspTick = DateTime.UtcNow.AddMilliseconds(100);
+
+        try
+        {
+            ProcessESPTick();
+        }
+        catch (Exception ex)
+        {
+            _core.Logger.LogError($"[AdminESP] Error during ESP tick: {ex.Message}");
+        }
+    }
+
+    public void Dispose()
+    {
+        _core.Event.OnTick -= OnTick;
+        foreach (var tracker in _espTrackers.Values)
+        {
+            tracker.Dispose();
+        }
+        _espTrackers.Clear();
     }
 
     public void ToggleESP(IPlayer? admin)
