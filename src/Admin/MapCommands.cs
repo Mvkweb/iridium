@@ -52,7 +52,7 @@ namespace Iridium.Admin
                 }
 
                 var button = new ButtonMenuOption(displayMapName) { CloseAfterClick = true };
-                button.Click += (_, args) =>
+                button.Click += async (_, args) =>
                 {
                     var adminPlayer = args.Player;
                     var adminPlayerName = adminPlayer.Controller?.PlayerName ?? "Admin";
@@ -69,6 +69,11 @@ namespace Iridium.Admin
                             _ = p.SendChatAsync($" \x06Iridium\x01 • \x04{adminPlayerName}\x01 is changing the map to \x04{displayMapName}\x01...");
                         }
 
+                        // Use a 2-second delay instead of NextTick to allow the Swiftly menu to fully close
+                        // Changing the map on the exact same frame a menu is closing is a known cause of 
+                        // null-pointer crashes in the CS2 engine/frameworks when UI entities are wiped.
+                        await Task.Delay(2000);
+                        
                         _core.Scheduler.NextTick(() =>
                         {
                             if (isWorkshop)
@@ -81,7 +86,6 @@ namespace Iridium.Admin
                             }
                         });
                     }
-                    return ValueTask.CompletedTask;
                 };
                 builder.AddOption(button);
             }

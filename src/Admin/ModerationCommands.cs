@@ -139,21 +139,25 @@ namespace Iridium.Admin
 
             var adminName = context.Sender?.Controller.PlayerName ?? "Console";
 
-            int slayedCount = 0;
-            foreach (var target in targets)
+            var validTargets = targets.Where(t => t.PlayerPawn?.IsValid == true).ToList();
+            int slayedCount = validTargets.Count;
+
+            if (slayedCount > 0)
             {
-                if (target.PlayerPawn?.IsValid == true)
+                _ = _core.Scheduler.NextTickAsync(() =>
                 {
-                    // Use scheduler for thread-unsafe CommitSuicide
-                    await _core.Scheduler.NextTickAsync(() =>
+                    foreach (var target in validTargets)
                     {
                         if (target.PlayerPawn?.IsValid == true)
                         {
                             target.PlayerPawn.CommitSuicide(false, true);
                         }
-                    });
-                    slayedCount++;
-                    await target.SendChatAsync($" \x02[Iridium]\x01 You were slayed by {adminName}.");
+                    }
+                });
+
+                foreach (var t in validTargets)
+                {
+                    t.SendChat($" \x02[Iridium]\x01 You were slayed by {adminName}.");
                 }
             }
 
@@ -163,10 +167,13 @@ namespace Iridium.Admin
                     ? $" \x02[Iridium]\x01 {adminName} slayed {targets[0].Controller.PlayerName}."
                     : $" \x02[Iridium]\x01 {adminName} slayed {slayedCount} players.";
                 
-                foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+                _ = _core.Scheduler.NextTickAsync(() =>
                 {
-                    await p.SendChatAsync(msg);
-                }
+                    foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+                    {
+                        p.SendChat(msg);
+                    }
+                });
             }
             else
             {
@@ -433,20 +440,23 @@ namespace Iridium.Admin
             var adminName = adminPlayer.Controller.PlayerName ?? "Console";
             if (target.PlayerPawn?.IsValid == true)
             {
-                await _core.Scheduler.NextTickAsync(() =>
+                _ = _core.Scheduler.NextTickAsync(() =>
                 {
                     if (target.PlayerPawn?.IsValid == true)
                     {
                         target.PlayerPawn.CommitSuicide(false, true);
                     }
                 });
-                await target.SendChatAsync($" \x02[Iridium]\x01 You were slayed by {adminName}.");
+                target.SendChat($" \x02[Iridium]\x01 You were slayed by {adminName}.");
                 
                 var msg = $" \x02[Iridium]\x01 {adminName} slayed {target.Controller.PlayerName}.";
-                foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+                _ = _core.Scheduler.NextTickAsync(() =>
                 {
-                    await p.SendChatAsync(msg);
-                }
+                    foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+                    {
+                        p.SendChat(msg);
+                    }
+                });
             }
         }
 
@@ -455,10 +465,14 @@ namespace Iridium.Admin
             var adminName = adminPlayer?.Controller.PlayerName ?? "Console";
             var targetName = target.Controller.PlayerName;
 
-            foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+            var msg = $" \x02[Iridium]\x01 {adminName} kicked {targetName}. Reason: {reason}";
+            _ = _core.Scheduler.NextTickAsync(() =>
             {
-                await p.SendChatAsync($" \x02[Iridium]\x01 {adminName} kicked {targetName}. Reason: {reason}");
-            }
+                foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+                {
+                    p.SendChat(msg);
+                }
+            });
 
             await target.KickAsync(reason, ENetworkDisconnectionReason.NETWORK_DISCONNECT_KICKED);
         }
@@ -484,10 +498,14 @@ namespace Iridium.Admin
             });
 
             var durationText = durationMinutes == 0 ? "permanently" : $"for {durationMinutes} minutes";
-            foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+            var msg = $" \x02[Iridium]\x01 {adminName} muted {targetName} {durationText}. Reason: {reason}";
+            _ = _core.Scheduler.NextTickAsync(() =>
             {
-                await p.SendChatAsync($" \x02[Iridium]\x01 {adminName} muted {targetName} {durationText}. Reason: {reason}");
-            }
+                foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+                {
+                    p.SendChat(msg);
+                }
+            });
         }
 
         private async Task ExecuteUnmuteAsync(IPlayer? adminPlayer, IPlayer target)
@@ -505,10 +523,14 @@ namespace Iridium.Admin
                     if (target.IsValid) target.VoiceFlags = VoiceFlagValue.Normal;
                 });
 
-                foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+                var msg = $" \x02[Iridium]\x01 {adminName} unmuted {targetName}.";
+                _ = _core.Scheduler.NextTickAsync(() =>
                 {
-                    await p.SendChatAsync($" \x02[Iridium]\x01 {adminName} unmuted {targetName}.");
-                }
+                    foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
+                    {
+                        p.SendChat(msg);
+                    }
+                });
             }
             else
             {
@@ -532,9 +554,10 @@ namespace Iridium.Admin
             await _moderationManager.AddBanAsync(targetSteamId, adminSteamId, reason, durationMinutes);
 
             var durationText = durationMinutes == 0 ? "permanently" : $"for {durationMinutes} minutes";
+            var msg = $" \x02[Iridium]\x01 {adminName} banned {targetName} {durationText}. Reason: {reason}";
             foreach (var p in _core.PlayerManager.GetAllPlayers().Where(x => x.IsValid))
             {
-                await p.SendChatAsync($" \x02[Iridium]\x01 {adminName} banned {targetName} {durationText}. Reason: {reason}");
+                p.SendChat(msg);
             }
 
             await target.KickAsync($"Banned {durationText}: {reason}", ENetworkDisconnectionReason.NETWORK_DISCONNECT_KICKED);

@@ -4,6 +4,7 @@ using SwiftlyS2.Shared.Players;
 using SwiftlyS2.Shared;
 using Iridium.Config;
 using System;
+using System.Collections.Generic;
 
 namespace Iridium.ESP;
 
@@ -16,6 +17,8 @@ public class PlayerESPTracker : IDisposable
     private CDynamicProp? _proxyRelay;
     private CDynamicProp? _enemyGlowOverlay;
     private CDynamicProp? _teamGlowOverlay;
+    
+    private readonly Dictionary<int, byte> _transmitStates = new();
     
     public bool IsDisposed { get; private set; }
 
@@ -116,6 +119,11 @@ public class PlayerESPTracker : IDisposable
 
     private void SetNetworkTransmission(bool transmitRelay, bool transmitEnemy, bool transmitTeam, int viewerId)
     {
+        byte state = (byte)((transmitRelay ? 1 : 0) | (transmitEnemy ? 2 : 0) | (transmitTeam ? 4 : 0));
+        
+        if (_transmitStates.TryGetValue(viewerId, out byte oldState) && oldState == state) return;
+        _transmitStates[viewerId] = state;
+
         if (_proxyRelay?.IsValid == true) _proxyRelay.SetTransmitState(transmitRelay, viewerId);
         if (_enemyGlowOverlay?.IsValid == true) _enemyGlowOverlay.SetTransmitState(transmitEnemy, viewerId);
         if (_teamGlowOverlay?.IsValid == true) _teamGlowOverlay.SetTransmitState(transmitTeam, viewerId);

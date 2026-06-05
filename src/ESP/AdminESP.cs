@@ -102,12 +102,30 @@ public class AdminESP
 
     private void ProcessESPTick()
     {
-        var allPlayers = _core.PlayerManager.GetAllPlayers().Where(p => p.IsValid && p.Controller != null).ToList();
+        var allPlayers = _core.PlayerManager.GetAllPlayers().Where(p => p.IsValid && p.Controller != null && p.Controller.IsValid).ToList();
         
+        // Cache C++ properties to avoid thousands of native interop calls in the O(N^2) loop
+        var cachedAlive = new Dictionary<int, bool>(allPlayers.Count);
+        var cachedTeam = new Dictionary<int, int>(allPlayers.Count);
+        
+        foreach (var p in allPlayers)
+        {
+            cachedAlive[p.PlayerID] = p.Controller?.PawnIsAlive == true;
+            cachedTeam[p.PlayerID] = p.Controller?.TeamNum ?? 0;
+        }
+
         // 1. Maintain track of all valid, alive targets
         foreach (var target in allPlayers)
         {
-            bool isAlive = target.Controller?.PawnIsAlive == true;
+            bool hasTracker = _espTrackers.TryGetValue(target.PlayerID, out var tracker);
+
+            if (target.PlayerPawn == null || !target.PlayerPawn.IsValid)
+            {
+                if (hasTracker && _espTrackers.TryRemove(target.PlayerID, out var t)) t.Dispose();
+                continue;
+            }
+
+            bool isAlive = cachedAlive[target.PlayerID];
             uint? currentPawnIndex = target.PlayerPawn?.Index;
             
             bool hasTracker = _espTrackers.TryGetValue(target.PlayerID, out var tracker);
@@ -158,19 +176,27 @@ public class AdminESP
         foreach (var viewer in allPlayers)
         {
             bool isActiveAdmin = _activeAdmins.Contains(viewer.SteamID);
-            bool isRoot = _core.Permission.PlayerHasPermission(viewer.SteamID, "root");
-            bool isAlive = viewer.Controller?.PawnIsAlive == true;
 
-            // Strict Permission Enforcement: Non-roots lose ESP while alive
-            if (isActiveAdmin && !isRoot && isAlive)
+            // Only perform heavy permission lookup if the player actually has ESP enabled
+            if (isActiveAdmin)
             {
-                isActiveAdmin = false;
+                bool isAlive = cachedAlive[viewer.PlayerID];
+
+                // Strict Permission Enforcement: Non-roots lose ESP while alive
+                if (isAlive)
+                {
+                    bool isRoot = _core.Permission.PlayerHasPermission(viewer.SteamID, "root");
+                    if (!isRoot)
+                    {
+                        isActiveAdmin = false;
+                    }
+                }
             }
 
             foreach (var target in allPlayers)
             {
                 if (target.PlayerID == viewer.PlayerID) continue;
-                if (!target.IsValid || target.Controller?.PawnIsAlive != true) continue;
+                if (!target.IsValid || !cachedAlive[target.PlayerID]) continue;
 
                 if (_espTrackers.TryGetValue(target.PlayerID, out var tracker))
                 {
@@ -181,14 +207,17 @@ public class AdminESP
                     }
                     else
                     {
-                        bool isTeammate = target.Controller.TeamNum == viewer.Controller?.TeamNum;
-                        bool isEnemy = !isTeammate && target.Controller?.TeamNum >= 2 && viewer.Controller?.TeamNum >= 2;
+                        int targetTeam = cachedTeam[target.PlayerID];
+                        int viewerTeam = cachedTeam[viewer.PlayerID];
+                        
+                        bool isTeammate = targetTeam == viewerTeam;
+                        bool isEnemy = !isTeammate && targetTeam >= 2 && viewerTeam >= 2;
 
                         // Spectator logic
-                        if (viewer.Controller?.TeamNum == 1) // Spectator
+                        if (viewerTeam == 1) // Spectator
                         {
-                            if (target.Controller.TeamNum == 3) isTeammate = true; 
-                            else if (target.Controller.TeamNum == 2) isEnemy = true;
+                            if (targetTeam == 3) isTeammate = true; 
+                            else if (targetTeam == 2) isEnemy = true;
                         }
 
                         tracker.UpdateTransmissionState(viewer.PlayerID, true, isTeammate, isEnemy);
