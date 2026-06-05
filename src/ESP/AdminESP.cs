@@ -128,7 +128,6 @@ public class AdminESP
             bool isAlive = cachedAlive[target.PlayerID];
             uint? currentPawnIndex = target.PlayerPawn?.Index;
             
-            bool hasTracker = _espTrackers.TryGetValue(target.PlayerID, out var tracker);
             bool isPawnChanged = hasTracker && tracker?.PawnIndex != currentPawnIndex;
 
             // If their pawn was completely replaced (like on warmup end or round restart)
@@ -195,11 +194,17 @@ public class AdminESP
 
             foreach (var target in allPlayers)
             {
-                if (target.PlayerID == viewer.PlayerID) continue;
                 if (!target.IsValid || !cachedAlive[target.PlayerID]) continue;
 
                 if (_espTrackers.TryGetValue(target.PlayerID, out var tracker))
                 {
+                    if (target.PlayerID == viewer.PlayerID)
+                    {
+                        // Explicitly hide a player's own ESP from themselves (fixes 3rd person glow)
+                        tracker.UpdateTransmissionState(viewer.PlayerID, false, false, false);
+                        continue;
+                    }
+
                     if (!isActiveAdmin)
                     {
                         // Explicitly hide from viewers who don't have ESP active

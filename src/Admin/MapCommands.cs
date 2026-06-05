@@ -78,11 +78,12 @@ namespace Iridium.Admin
                         {
                             if (isWorkshop)
                             {
-                                _core.Engine.ExecuteCommand($"host_workshop_map {mapName}");
+                                _core.Engine.ExecuteCommandWithBuffer($"host_workshop_map {mapName}", _ => { });
                             }
                             else
                             {
-                                _core.Engine.ExecuteCommand($"map {mapName}");
+                                _core.Engine.ExecuteCommandWithBuffer($"nextlevel {mapName}", _ => { });
+                                _core.Engine.ExecuteCommandWithBuffer($"changelevel {mapName}", _ => { });
                             }
                         });
                     }

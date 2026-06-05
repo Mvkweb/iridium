@@ -303,11 +303,12 @@ namespace Iridium.Admin
                 {
                     if (winner.StartsWith("ws:"))
                     {
-                        _core.Engine.ExecuteCommand($"host_workshop_map {winner.Substring(3)}");
+                        _core.Engine.ExecuteCommandWithBuffer($"host_workshop_map {winner.Substring(3)}", _ => { });
                     }
                     else
                     {
-                        _core.Engine.ExecuteCommand($"map {winner}");
+                        _core.Engine.ExecuteCommandWithBuffer($"nextlevel {winner}", _ => { });
+                        _core.Engine.ExecuteCommandWithBuffer($"changelevel {winner}", _ => { });
                     }
                 });
             });

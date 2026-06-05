@@ -95,33 +95,39 @@ public class PlayerESPTracker : IDisposable
         overlay.Glow.GlowRangeMin = 0;
     }
 
+    private readonly DateTime _createdAt = DateTime.UtcNow;
+
     public void UpdateTransmissionState(int viewerId, bool canTransmit, bool isTeammate, bool isEnemy)
     {
         if (IsDisposed) return;
 
+        // Force updates for the first 2 seconds because CS2 often ignores SetTransmitState 
+        // if called on the exact same frame the entity was created/spawned.
+        bool forceUpdate = (DateTime.UtcNow - _createdAt).TotalSeconds < 2.0;
+
         // Never transmit to self
         if (viewerId == TargetPlayerId || !canTransmit)
         {
-            SetNetworkTransmission(false, false, false, viewerId);
+            SetNetworkTransmission(false, false, false, viewerId, forceUpdate);
             return;
         }
 
         // Always transmit relay if ESP is visible
         if (isTeammate)
         {
-            SetNetworkTransmission(true, false, true, viewerId); // Only Team Overlay
+            SetNetworkTransmission(true, false, true, viewerId, forceUpdate); // Only Team Overlay
         }
         else if (isEnemy)
         {
-            SetNetworkTransmission(true, true, false, viewerId); // Only Enemy Overlay
+            SetNetworkTransmission(true, true, false, viewerId, forceUpdate); // Only Enemy Overlay
         }
     }
 
-    private void SetNetworkTransmission(bool transmitRelay, bool transmitEnemy, bool transmitTeam, int viewerId)
+    private void SetNetworkTransmission(bool transmitRelay, bool transmitEnemy, bool transmitTeam, int viewerId, bool forceUpdate)
     {
         byte state = (byte)((transmitRelay ? 1 : 0) | (transmitEnemy ? 2 : 0) | (transmitTeam ? 4 : 0));
         
-        if (_transmitStates.TryGetValue(viewerId, out byte oldState) && oldState == state) return;
+        if (!forceUpdate && _transmitStates.TryGetValue(viewerId, out byte oldState) && oldState == state) return;
         _transmitStates[viewerId] = state;
 
         if (_proxyRelay?.IsValid == true) _proxyRelay.SetTransmitState(transmitRelay, viewerId);
